@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GATEWAY = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 export type IdentificationResult = {
   kind: "plant" | "fish" | "unknown";
@@ -95,8 +95,8 @@ const IDENTIFY_TOOL = {
 export const analyzeImage = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ imageUrl: z.string().url() }).parse(d))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY missing");
 
     const res = await fetch(GATEWAY, {
       method: "POST",
@@ -105,7 +105,7 @@ export const analyzeImage = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         messages: [
           {
             role: "system",
@@ -130,7 +130,7 @@ export const analyzeImage = createServerFn({ method: "POST" })
     if (!res.ok) {
       const text = await res.text();
       if (res.status === 429) throw new Error("Rate limit reached. Try again in a moment.");
-      if (res.status === 402) throw new Error("AI credits exhausted. Add credits in Workspace settings.");
+      if (res.status === 402) throw new Error("AI credits exhausted.");
       throw new Error(`AI gateway ${res.status}: ${text.slice(0, 200)}`);
     }
 
@@ -147,20 +147,16 @@ export const analyzeImage = createServerFn({ method: "POST" })
 
 export const chatAboutScan = createServerFn({ method: "POST" })
   .inputValidator((d) =>
-    z
-      .object({
+    z.object({
         imageUrl: z.string().url(),
-        history: z
-          .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
-          .max(40),
+        history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(40),
         prompt: z.string().min(1).max(2000),
         context: z.string().max(4000).optional(),
-      })
-      .parse(d),
+      }).parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY missing");
 
     const systemContent =
       "You are AquaLeaf AI assistant. The user uploaded an image and is asking follow-up questions. " +
@@ -174,7 +170,7 @@ export const chatAboutScan = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: systemContent },
           {
