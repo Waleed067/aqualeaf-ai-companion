@@ -70,10 +70,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "AquaLeaf AI scans plants and fish from photos to identify species, diagnose diseases, and give care advice.",
       },
-      { property: "og:title", content: "AquaLeaf AI" },
-      { property: "og:description", content: "AI plant & fish scanner with care guide and chatbot." },
+      { property: "og:title", content: "AquaLeaf AI — Identify plants & fish, diagnose diseases" },
+      { property: "og:description", content: "AquaLeaf AI identifies plants and fish from images, diagnoses diseases, and provides care guidance." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "AquaLeaf AI — Identify plants & fish, diagnose diseases" },
+      { name: "description", content: "AquaLeaf AI identifies plants and fish from images, diagnoses diseases, and provides care guidance." },
+      { name: "twitter:description", content: "AquaLeaf AI identifies plants and fish from images, diagnoses diseases, and provides care guidance." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/PrDWPugrQsR7CHHTWI1rW0WoGst2/social-images/social-1778332155898-hero.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/PrDWPugrQsR7CHHTWI1rW0WoGst2/social-images/social-1778332155898-hero.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
