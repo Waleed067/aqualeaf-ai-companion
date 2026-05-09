@@ -1,0 +1,24 @@
+{
+  "name": "AquaLeaf AI",
+  "short_name": "AquaLeaf",
+  "description": "AI-powered plant & fish identification, disease diagnosis, and care.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6fbfa",
+  "theme_color": "#2fa087",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
