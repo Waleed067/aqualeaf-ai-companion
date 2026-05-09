@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-provider";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
