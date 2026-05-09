@@ -14,7 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          scan_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          scan_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          scan_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          interval_days: number
+          kind: string
+          next_at: string
+          scan_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_days?: number
+          kind: string
+          next_at: string
+          scan_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_days?: number
+          kind?: string
+          next_at?: string
+          scan_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scans: {
+        Row: {
+          care_guide: Json | null
+          common_name: string | null
+          confidence: number | null
+          created_at: string
+          description: string | null
+          disease: Json | null
+          group_key: string | null
+          habitat: string | null
+          id: string
+          image_url: string
+          kind: string
+          notes: string | null
+          scientific_name: string | null
+          similar_species: Json | null
+          toxicity: string | null
+          user_id: string
+        }
+        Insert: {
+          care_guide?: Json | null
+          common_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          description?: string | null
+          disease?: Json | null
+          group_key?: string | null
+          habitat?: string | null
+          id?: string
+          image_url: string
+          kind: string
+          notes?: string | null
+          scientific_name?: string | null
+          similar_species?: Json | null
+          toxicity?: string | null
+          user_id: string
+        }
+        Update: {
+          care_guide?: Json | null
+          common_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          description?: string | null
+          disease?: Json | null
+          group_key?: string | null
+          habitat?: string | null
+          id?: string
+          image_url?: string
+          kind?: string
+          notes?: string | null
+          scientific_name?: string | null
+          similar_species?: Json | null
+          toxicity?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
