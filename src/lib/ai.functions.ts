@@ -3,6 +3,36 @@ import { z } from "zod";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+export type IdentificationResult = {
+  kind: "plant" | "fish" | "unknown";
+  common_name: string;
+  scientific_name?: string;
+  confidence: number;
+  similar_species?: { common_name: string; scientific_name?: string }[];
+  description: string;
+  habitat?: string;
+  toxicity?: string;
+  care_guide: {
+    watering?: string;
+    sunlight?: string;
+    soil?: string;
+    fertilizer?: string;
+    tank_size?: string;
+    ph?: string;
+    temperature?: string;
+    feeding?: string;
+    general?: string;
+  };
+  disease: {
+    detected: boolean;
+    name?: string;
+    cause?: string;
+    severity?: "none" | "mild" | "moderate" | "severe";
+    affected_area?: string;
+    treatment?: string[];
+  };
+};
+
 const IDENTIFY_TOOL = {
   type: "function",
   function: {
@@ -108,7 +138,8 @@ export const analyzeImage = createServerFn({ method: "POST" })
     const call = json.choices?.[0]?.message?.tool_calls?.[0];
     if (!call?.function?.arguments) throw new Error("AI returned no structured result");
     try {
-      return JSON.parse(call.function.arguments) as Record<string, unknown>;
+      const parsed = JSON.parse(call.function.arguments);
+      return { result: parsed as IdentificationResult };
     } catch {
       throw new Error("Failed to parse AI response");
     }
