@@ -31,100 +31,116 @@ export type IdentificationResult = {
   };
 };
 
+const IDENTIFY_TOOL = {
+  type: "function",
+  function: {
+    name: "report_identification",
+    description: "Return identification, disease assessment, and care guide for the image.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["plant", "fish", "unknown"] },
+        common_name: { type: "string" },
+        scientific_name: { type: "string" },
+        confidence: { type: "number", description: "0-1" },
+        similar_species: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              common_name: { type: "string" },
+              scientific_name: { type: "string" },
+            },
+            required: ["common_name"],
+          },
+        },
+        description: { type: "string" },
+        habitat: { type: "string" },
+        toxicity: { type: "string" },
+        care_guide: {
+          type: "object",
+          properties: {
+            watering: { type: "string" },
+            sunlight: { type: "string" },
+            soil: { type: "string" },
+            fertilizer: { type: "string" },
+            tank_size: { type: "string" },
+            ph: { type: "string" },
+            temperature: { type: "string" },
+            feeding: { type: "string" },
+            general: { type: "string" },
+          },
+        },
+        disease: {
+          type: "object",
+          properties: {
+            detected: { type: "boolean" },
+            name: { type: "string" },
+            cause: { type: "string" },
+            severity: { type: "string", enum: ["none", "mild", "moderate", "severe"] },
+            affected_area: { type: "string" },
+            treatment: { type: "array", items: { type: "string" } },
+          },
+          required: ["detected"],
+        },
+      },
+      required: ["kind", "common_name", "confidence", "description", "care_guide", "disease"],
+      additionalProperties: false,
+    },
+  },
+} as const;
+
 export const analyzeImage = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ imageUrl: z.string().url() }).parse(d))
   .handler(async ({ data }) => {
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const apiToken = process.env.CLOUDFLARE_AI_TOKEN;
-    if (!accountId || !apiToken) throw new Error("Cloudflare AI credentials missing");
-
-    const prompt = `You are AquaLeaf AI, an expert botanist and aquarist. Analyze this image and identify the plant or fish shown. Return ONLY a valid JSON object with no extra text, no markdown, no code blocks. Just raw JSON:
-{
-  "kind": "plant",
-  "common_name": "name here",
-  "scientific_name": "scientific name",
-  "confidence": 0.9,
-  "similar_species": [{"common_name": "name", "scientific_name": "name"}],
-  "description": "detailed description",
-  "habitat": "natural habitat",
-  "toxicity": "toxicity info or null",
-  "care_guide": {
-    "watering": "watering info",
-    "sunlight": "sunlight needs",
-    "soil": "soil type",
-    "fertilizer": "fertilizer info",
-    "tank_size": "tank size for fish",
-    "ph": "pH range",
-    "temperature": "temperature range",
-    "feeding": "feeding info",
-    "general": "general care tips"
-  },
-  "disease": {
-    "detected": false,
-    "name": null,
-    "cause": null,
-    "severity": "none",
-    "affected_area": null,
-    "treatment": []
-  }
-}`;
-
-    const imageRes = await fetch(data.imageUrl);
-    const imageBuffer = await imageRes.arrayBuffer();
-    const imageArray = [...new Uint8Array(imageBuffer)];
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY missing");
 
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/unum/uform-gen2-qwen-500m`,
+      `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiToken}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt,
-          image: imageArray,
-          max_tokens: 1024,
+          model: "gemini-2.0-flash",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are AquaLeaf AI, an expert botanist and aquarist. Identify plants and fish from photos. " +
+                "Detect diseases. Always return data via the report_identification tool. If not a plant or fish, set kind='unknown'.",
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Identify this and provide full care + disease report." },
+                { type: "image_url", image_url: { url: data.imageUrl } },
+              ],
+            },
+          ],
+          tools: [IDENTIFY_TOOL],
+          tool_choice: { type: "function", function: { name: "report_identification" } },
         }),
       }
     );
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Cloudflare AI error ${res.status}: ${text.slice(0, 200)}`);
+      if (res.status === 429) throw new Error("Rate limit reached. Please wait a moment and try again.");
+      throw new Error(`AI error ${res.status}: ${text.slice(0, 200)}`);
     }
 
     const json = await res.json();
-    const responseText = json.result?.description ?? json.result?.response ?? "";
-
+    const call = json.choices?.[0]?.message?.tool_calls?.[0];
+    if (!call?.function?.arguments) throw new Error("AI returned no structured result");
     try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        // Model returned plain text, build a basic result from it
-        return {
-          result: {
-            kind: "unknown" as const,
-            common_name: responseText.slice(0, 50) || "Unknown",
-            confidence: 0.5,
-            description: responseText,
-            care_guide: { general: responseText },
-            disease: { detected: false, severity: "none" as const },
-          } as IdentificationResult,
-        };
-      }
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(call.function.arguments);
       return { result: parsed as IdentificationResult };
     } catch {
-      return {
-        result: {
-          kind: "unknown" as const,
-          common_name: "Unknown",
-          confidence: 0.5,
-          description: responseText || "Could not identify the image",
-          care_guide: { general: "Please try again with a clearer image" },
-          disease: { detected: false, severity: "none" as const },
-        } as IdentificationResult,
-      };
+      throw new Error("Failed to parse AI response");
     }
   });
 
@@ -138,40 +154,48 @@ export const chatAboutScan = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }) => {
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const apiToken = process.env.CLOUDFLARE_AI_TOKEN;
-    if (!accountId || !apiToken) throw new Error("Cloudflare AI credentials missing");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY missing");
 
     const systemContent =
-      "You are AquaLeaf AI assistant. The user is asking follow-up questions about a plant or fish. " +
+      "You are AquaLeaf AI assistant. The user uploaded an image and is asking follow-up questions. " +
       "Be concise, friendly, and practical. Use markdown lists for steps." +
       (data.context ? `\n\nContext from prior identification:\n${data.context}` : "");
 
-    const messages = [
-      { role: "system", content: systemContent },
-      ...data.history.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: data.prompt },
-    ];
-
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+      `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiToken}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages, max_tokens: 1024 }),
+        body: JSON.stringify({
+          model: "gemini-2.0-flash",
+          messages: [
+            { role: "system", content: systemContent },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Reference image:" },
+                { type: "image_url", image_url: { url: data.imageUrl } },
+              ],
+            },
+            ...data.history.map((m) => ({ role: m.role, content: m.content })),
+            { role: "user", content: data.prompt },
+          ],
+        }),
       }
     );
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Cloudflare AI error ${res.status}: ${text.slice(0, 200)}`);
+      if (res.status === 429) throw new Error("Rate limit reached. Try again shortly.");
+      throw new Error(`AI error ${res.status}: ${text.slice(0, 200)}`);
     }
 
     const json = await res.json();
-    const reply = json.result?.response;
+    const reply = json.choices?.[0]?.message?.content;
     if (!reply) throw new Error("Empty AI response");
     return { reply: reply as string };
   });
