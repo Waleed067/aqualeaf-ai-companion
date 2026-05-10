@@ -38,9 +38,7 @@ export const analyzeImage = createServerFn({ method: "POST" })
     const apiToken = process.env.CLOUDFLARE_AI_TOKEN;
     if (!accountId || !apiToken) throw new Error("Cloudflare AI credentials missing");
 
-    const prompt = `You are AquaLeaf AI, an expert botanist and aquarist. Analyze this image and identify the plant or fish shown.
-
-Return ONLY a valid JSON object with no extra text, no markdown, no code blocks. Just raw JSON:
+    const prompt = `You are AquaLeaf AI, an expert botanist and aquarist. Analyze this image and identify the plant or fish shown. Return ONLY a valid JSON object with no extra text, no markdown, no code blocks. Just raw JSON:
 {
   "kind": "plant",
   "common_name": "name here",
@@ -71,8 +69,12 @@ Return ONLY a valid JSON object with no extra text, no markdown, no code blocks.
   }
 }`;
 
+    const imageRes = await fetch(data.imageUrl);
+    const imageBuffer = await imageRes.arrayBuffer();
+    const imageArray = [...new Uint8Array(imageBuffer)];
+
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/unum/uform-gen2-qwen-500m`,
       {
         method: "POST",
         headers: {
@@ -80,15 +82,8 @@ Return ONLY a valid JSON object with no extra text, no markdown, no code blocks.
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: data.imageUrl } },
-              ],
-            },
-          ],
+          prompt,
+          image: imageArray,
           max_tokens: 1024,
         }),
       }
@@ -100,15 +95,36 @@ Return ONLY a valid JSON object with no extra text, no markdown, no code blocks.
     }
 
     const json = await res.json();
-    const responseText = json.result?.response ?? "";
+    const responseText = json.result?.description ?? json.result?.response ?? "";
 
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found in response");
+      if (!jsonMatch) {
+        // Model returned plain text, build a basic result from it
+        return {
+          result: {
+            kind: "unknown" as const,
+            common_name: responseText.slice(0, 50) || "Unknown",
+            confidence: 0.5,
+            description: responseText,
+            care_guide: { general: responseText },
+            disease: { detected: false, severity: "none" as const },
+          } as IdentificationResult,
+        };
+      }
       const parsed = JSON.parse(jsonMatch[0]);
       return { result: parsed as IdentificationResult };
     } catch {
-      throw new Error(`Failed to parse AI response: ${responseText.slice(0, 200)}`);
+      return {
+        result: {
+          kind: "unknown" as const,
+          common_name: "Unknown",
+          confidence: 0.5,
+          description: responseText || "Could not identify the image",
+          care_guide: { general: "Please try again with a clearer image" },
+          disease: { detected: false, severity: "none" as const },
+        } as IdentificationResult,
+      };
     }
   });
 
