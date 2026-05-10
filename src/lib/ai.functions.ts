@@ -85,7 +85,7 @@ Return a JSON object with exactly this structure (no extra text, just JSON):
 }`;
 
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/llava-1.5-7b-hf`,
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/unum/uform-gen2-qwen-500m`,
       {
         method: "POST",
         headers: {
